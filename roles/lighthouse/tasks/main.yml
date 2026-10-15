@@ -1,0 +1,33 @@
+---
+- name: Install Nginx
+  ansible.builtin.package:
+    name: nginx
+    state: present
+  become: true
+
+- name: Clear default web server html directory
+  ansible.builtin.file:
+    path: /var/www/html
+    state: absent
+  become: true
+
+- name: Create directory for Lighthouse
+  ansible.builtin.file:
+    path: /var/www/html
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Clone Lighthouse repository
+  ansible.builtin.git:
+    repo: 'https://github.com/vkcom/lighthouse.git'
+    dest: /var/www/html
+    version: master
+  become: true
+
+- name: Ensure nginx service is started and enabled
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+  become: true

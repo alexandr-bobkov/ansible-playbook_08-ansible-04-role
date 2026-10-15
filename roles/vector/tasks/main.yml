@@ -1,0 +1,34 @@
+---
+- name: Download Vector package from GitHub Releases
+  ansible.builtin.get_url:
+    url: "https://github.com/vectordotdev/vector/releases/download/v{{ vector_version }}/vector_{{ vector_version }}-1_amd64.deb"
+    dest: "/tmp/vector_{{ vector_version }}-1_amd64.deb"
+    mode: '0644'
+
+- name: Install Vector via apt
+  ansible.builtin.apt:
+    deb: "/tmp/vector_{{ vector_version }}-1_amd64.deb"
+    state: present
+  become: true
+
+- name: Create Vector configuration directory
+  ansible.builtin.file:
+    path: /etc/vector
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Copy Vector configuration template
+  ansible.builtin.template:
+    src: vector.toml.j2
+    dest: /etc/vector/vector.toml
+    mode: '0644'
+  become: true
+  notify: Restart vector
+
+- name: Ensure vector service is started and enabled
+  ansible.builtin.service:
+    name: vector
+    state: started
+    enabled: true
+  become: true

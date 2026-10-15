@@ -1,0 +1,64 @@
+---
+# Main installation actions for ClickHouse via APT
+
+- name: Install by APT | Install prerequisites
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+  become: true
+
+- name: Install by APT | Download and add ClickHouse GPG key (modern keyring method)
+  ansible.builtin.shell: |
+    curl -fsSL 'https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key' | gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/clickhouse-keyring.gpg
+  become: true
+
+- name: Install by APT | Remove old repo format if exists
+  ansible.builtin.apt_repository:
+    repo: "{{ clickhouse_repo_old }}"
+    state: absent
+  become: true
+  when: clickhouse_repo_old is defined
+  tags: [install]
+
+- name: Install by APT | Repo installation with signed-by
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg] https://packages.clickhouse.com/deb stable main"
+    state: present
+    update_cache: true
+  become: true
+  tags: [install]
+
+- name: Install by APT | Package installation
+  ansible.builtin.apt:
+    name: "{{ clickhouse_package | map('regex_replace', '$', '=' + clickhouse_version) | list }}"
+    state: present
+    update_cache: true
+  become: true
+  when: clickhouse_version != 'latest'
+  tags: [install]
+
+- name: Install by APT | Package installation (latest)
+  ansible.builtin.apt:
+    name: "{{ clickhouse_package }}"
+    state: "{{ clickhouse_version }}"
+    update_cache: true
+  become: true
+  when: clickhouse_version == 'latest'
+  tags: [install]
+
+- name: Hold specified version during APT upgrade | Package installation
+  become: true
+  ansible.builtin.copy:
+    dest: "/etc/apt/preferences.d/fixed-{{ item }}"
+    content: |
+      Package: {{ item }}
+      Pin: release a=now
+      Pin-Priority: 1001
+  loop: "{{ clickhouse_package }}"
